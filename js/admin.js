@@ -143,8 +143,20 @@ function switchTab(tabId) {
     }
   } else if (tabId === 'products') {
     renderAdminProductsTable();
+    if (window.AtikshAPI) {
+      AtikshAPI.getProducts().then(() => {
+        renderAdminProductsTable();
+        updateAdminStats();
+      });
+    }
   } else if (tabId === 'users') {
     renderAdminUsersTable();
+    if (window.AtikshAPI) {
+      AtikshAPI.getUsers().then(() => {
+        renderAdminUsersTable();
+        updateAdminStats();
+      });
+    }
   }
 
   initLucide();
@@ -296,7 +308,29 @@ function handleImageSlotUpload(event, slot) {
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    setImageSlot(slot, e.target.result);
+    const img = new Image();
+    img.onload = function() {
+      const maxDim = 800;
+      let w = img.width;
+      let h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      setImageSlot(slot, compressedDataUrl);
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -853,6 +887,25 @@ function handleAdminLogin(event) {
 
     showToast("Welcome to Atiksh Pharma Admin Portal");
     initLucide();
+
+    // Immediately fetch latest live data from Firebase cloud upon login
+    if (window.AtikshAPI) {
+      Promise.all([
+        AtikshAPI.getProducts(),
+        AtikshAPI.getInquiries(),
+        AtikshAPI.getUsers()
+      ]).then(() => {
+        renderAdminProductsTable();
+        renderAdminInquiriesTable();
+        renderAdminUsersTable();
+        updateAdminStats();
+      });
+    } else {
+      renderAdminProductsTable();
+      renderAdminInquiriesTable();
+      renderAdminUsersTable();
+      updateAdminStats();
+    }
   } else {
     if (errEl) errEl.classList.remove('hidden');
     pwdInput.select();

@@ -114,43 +114,59 @@ setInterval(function() {
 }, 1000);
 
 // 4. Cross-Device Cloud Sync Poll (Polls every 3 seconds for updates from other devices)
-let _lastSyncRemoteProductsCount = -1;
-let _lastSyncRemoteInquiriesCount = -1;
+let _lastSyncProductsHash = '';
+let _lastSyncInquiriesHash = '';
+let _lastSyncUsersHash = '';
 
 async function syncRemoteDataCrossDevice() {
   if (!window.AtikshAPI) return;
   try {
-    // Sync Site Config
+    // 1. Sync Site Config
     const remoteConfig = await AtikshAPI.getConfig();
     if (remoteConfig) applySiteConfigToDOM();
 
-    // Sync Products
+    // 2. Sync Products (Website Catalog + Admin Table)
     const remoteProds = await AtikshAPI.getProducts();
     if (Array.isArray(remoteProds)) {
-      if (_lastSyncRemoteProductsCount !== -1 && _lastSyncRemoteProductsCount !== remoteProds.length) {
+      const prodsHash = JSON.stringify(remoteProds);
+      if (_lastSyncProductsHash !== prodsHash) {
+        _lastSyncProductsHash = prodsHash;
         if (typeof initHomeFeaturedProducts === 'function') initHomeFeaturedProducts();
-        if (typeof initProductsCatalog === 'function') initProductsCatalog();
+        if (typeof window._renderCatalog === 'function') {
+          window._renderCatalog();
+        } else if (typeof initProductsCatalog === 'function') {
+          initProductsCatalog();
+        }
+        if (typeof initProductDetailPage === 'function') initProductDetailPage();
         if (typeof renderAdminProductsTable === 'function') renderAdminProductsTable();
+        if (typeof updateAdminStats === 'function') updateAdminStats();
       }
-      _lastSyncRemoteProductsCount = remoteProds.length;
     }
 
-    // Sync Inquiries (if on Admin panel)
+    // 3. Sync Inquiries (Admin Inquiries Table)
     if (typeof renderAdminInquiriesTable === 'function') {
       const remoteInquiries = await AtikshAPI.getInquiries();
       if (Array.isArray(remoteInquiries)) {
-        if (_lastSyncRemoteInquiriesCount !== -1 && _lastSyncRemoteInquiriesCount !== remoteInquiries.length) {
+        const inqHash = JSON.stringify(remoteInquiries);
+        if (_lastSyncInquiriesHash !== inqHash) {
+          _lastSyncInquiriesHash = inqHash;
           renderAdminInquiriesTable();
           if (typeof updateAdminStats === 'function') updateAdminStats();
         }
-        _lastSyncRemoteInquiriesCount = remoteInquiries.length;
       }
     }
 
-    // Sync Users (if on Admin panel)
+    // 4. Sync Users (Admin Users Table)
     if (typeof renderAdminUsersTable === 'function') {
-      await AtikshAPI.getUsers();
-      renderAdminUsersTable();
+      const remoteUsers = await AtikshAPI.getUsers();
+      if (Array.isArray(remoteUsers)) {
+        const usersHash = JSON.stringify(remoteUsers);
+        if (_lastSyncUsersHash !== usersHash) {
+          _lastSyncUsersHash = usersHash;
+          renderAdminUsersTable();
+          if (typeof updateAdminStats === 'function') updateAdminStats();
+        }
+      }
     }
   } catch (err) {
     // Quiet fail on temporary network hiccups
@@ -159,6 +175,13 @@ async function syncRemoteDataCrossDevice() {
 
 // Check every 3 seconds for new inquiries or products from other phones/browsers
 setInterval(syncRemoteDataCrossDevice, 3000);
+
+// Also trigger immediate background sync on startup
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(syncRemoteDataCrossDevice, 100));
+} else {
+  setTimeout(syncRemoteDataCrossDevice, 100);
+}
 
 // Global export
 window.applySiteConfigToDOM = applySiteConfigToDOM;

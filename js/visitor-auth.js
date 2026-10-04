@@ -529,11 +529,12 @@ function showAuthAlert(msg, isSuccess = false) {
 // --------------------------------------------------------------------------
 // Sign Up Handler
 // --------------------------------------------------------------------------
-function handleVisitorSignUp(e) {
+async function handleVisitorSignUp(e) {
   if (e && e.preventDefault) e.preventDefault();
   const name = (document.getElementById('v-reg-name') ? document.getElementById('v-reg-name').value : '').trim();
   const email = (document.getElementById('v-reg-email') ? document.getElementById('v-reg-email').value : '').trim().toLowerCase();
   const phone = (document.getElementById('v-reg-phone') ? document.getElementById('v-reg-phone').value : '').trim();
+  const cleanPhone = phone.replace(/[\s-]/g, '');
   const password = (document.getElementById('v-reg-password') ? document.getElementById('v-reg-password').value : '').trim();
   const remember = document.getElementById('v-reg-remember') ? document.getElementById('v-reg-remember').checked : true;
 
@@ -542,8 +543,19 @@ function handleVisitorSignUp(e) {
     return false;
   }
 
+  // Pre-fetch live users from Firebase cloud before checking existence
+  if (window.AtikshAPI && typeof window.AtikshAPI.getUsers === 'function') {
+    try {
+      await window.AtikshAPI.getUsers();
+    } catch (err) {}
+  }
+
   const users = getRegisteredUsers();
-  const exists = users.find(u => u.email === email || (phone && u.phone === phone));
+  const exists = users.find(u => {
+    const uEmail = (u.email || '').toLowerCase().trim();
+    const uPhone = (u.phone || '').replace(/[\s-]/g, '');
+    return (uEmail && uEmail === email) || (cleanPhone && uPhone && uPhone === cleanPhone);
+  });
 
   if (exists) {
     showAuthAlert("An account with this email or phone number already exists. Please Sign In.");
@@ -584,16 +596,25 @@ function handleVisitorSignUp(e) {
 // --------------------------------------------------------------------------
 // Sign In Handler
 // --------------------------------------------------------------------------
-function handleVisitorSignIn(e) {
+async function handleVisitorSignIn(e) {
   if (e && e.preventDefault) e.preventDefault();
   const identifier = (document.getElementById('v-login-identifier') ? document.getElementById('v-login-identifier').value : '').trim().toLowerCase();
+  const cleanId = identifier.replace(/[\s-]/g, '');
   const password = (document.getElementById('v-login-password') ? document.getElementById('v-login-password').value : '').trim();
   const remember = document.getElementById('v-login-remember') ? document.getElementById('v-login-remember').checked : true;
 
+  if (window.AtikshAPI && typeof window.AtikshAPI.getUsers === 'function') {
+    try {
+      await window.AtikshAPI.getUsers();
+    } catch (err) {}
+  }
+
   const users = getRegisteredUsers();
-  const user = users.find(u => 
-    (u.email.toLowerCase() === identifier || u.phone === identifier) && u.password === password
-  );
+  const user = users.find(u => {
+    const uEmail = (u.email || '').toLowerCase().trim();
+    const uPhone = (u.phone || '').replace(/[\s-]/g, '');
+    return (uEmail === identifier || (uPhone && uPhone === cleanId)) && u.password === password;
+  });
 
   if (!user) {
     showAuthAlert("Invalid credentials. Please verify your email/phone and password.");

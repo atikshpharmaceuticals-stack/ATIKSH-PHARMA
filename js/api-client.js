@@ -147,9 +147,10 @@ const AtikshAPI = (function() {
     // 3. USERS
     getUsers: async function() {
       const serverData = await request('/api/users', 'GET');
-      if (Array.isArray(serverData)) {
-        localStorage.setItem('atiksh_registered_users', JSON.stringify(serverData));
-        return serverData;
+      if (serverData !== null && serverData !== undefined) {
+        const list = Array.isArray(serverData) ? serverData : Object.values(serverData);
+        localStorage.setItem('atiksh_registered_users', JSON.stringify(list));
+        return list;
       }
       try {
         return JSON.parse(localStorage.getItem('atiksh_registered_users') || '[]');
@@ -226,7 +227,7 @@ const AtikshAPI = (function() {
 window.AtikshAPI = AtikshAPI;
 
 // Initial Auto-Sync on page load across all clients
-(async function initBackgroundCloudSync() {
+async function initBackgroundCloudSync() {
   try {
     // 1. Sync Site Config
     const remoteConfig = await AtikshAPI.getConfig();
@@ -238,7 +239,9 @@ window.AtikshAPI = AtikshAPI;
     const remoteProds = await AtikshAPI.getProducts();
     if (remoteProds) {
       if (typeof initHomeFeaturedProducts === 'function') initHomeFeaturedProducts();
-      if (typeof initProductsCatalog === 'function') initProductsCatalog();
+      if (typeof window._renderCatalog === 'function') window._renderCatalog();
+      else if (typeof initProductsCatalog === 'function') initProductsCatalog();
+      if (typeof initProductDetailPage === 'function') initProductDetailPage();
       if (typeof renderAdminProductsTable === 'function') renderAdminProductsTable();
     }
 
@@ -251,7 +254,16 @@ window.AtikshAPI = AtikshAPI;
       await AtikshAPI.getUsers();
       renderAdminUsersTable();
     }
+    if (typeof updateAdminStats === 'function') {
+      updateAdminStats();
+    }
   } catch (err) {
     console.debug('Background Cloud Sync:', err);
   }
-})();
+}
+
+window.initBackgroundCloudSync = initBackgroundCloudSync;
+initBackgroundCloudSync();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(initBackgroundCloudSync, 150));
+}

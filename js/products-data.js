@@ -43,18 +43,12 @@ function clearAllProductsDatabase() {
   }
 }
 
-// Ensure default state is empty if uninitialized or previously held sample items
+// Ensure default state is valid array if uninitialized
 (function ensureCleanProductsDatabase() {
   try {
     const raw = localStorage.getItem('atiksh_products');
     if (raw === null) {
       localStorage.setItem('atiksh_products', JSON.stringify([]));
-    } else {
-      const parsed = JSON.parse(raw);
-      // If contains old sample seed items with id atiksh-cv-625, clean them out
-      if (Array.isArray(parsed) && parsed.some(p => p.id === 'atiksh-cv-625')) {
-        localStorage.setItem('atiksh_products', JSON.stringify([]));
-      }
     }
   } catch (e) {}
 })();

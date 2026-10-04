@@ -3,10 +3,18 @@
  * Handles Search, Product Filtering by Dosage/Category, Dynamic Detail View, Inquiries Lead Engine, and UI Interactivity.
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   initLucide();
   initFooterYear();
   initMobileMenu();
+
+  // Pre-fetch live products from Firebase cloud if not yet loaded locally
+  if (window.AtikshAPI && typeof window.AtikshAPI.getProducts === 'function') {
+    try {
+      await window.AtikshAPI.getProducts();
+    } catch (e) {}
+  }
+
   initHomeFeaturedProducts();
   initProductsCatalog();
   initProductDetailPage();
@@ -312,7 +320,7 @@ window.initProductsCatalog = initProductsCatalog;
 // --------------------------------------------------------------------------
 // 3. Product Detail Page (product-detail.html)
 // --------------------------------------------------------------------------
-function initProductDetailPage() {
+async function initProductDetailPage() {
   const container = document.getElementById('product-detail-container');
   if (!container) return;
 
@@ -332,7 +340,15 @@ function initProductDetailPage() {
     return;
   }
 
-  const product = getAtikshProductById(prodId);
+  let product = getAtikshProductById(prodId);
+
+  // If not yet available in localStorage, fetch from Firebase Cloud
+  if (!product && window.AtikshAPI && typeof window.AtikshAPI.getProducts === 'function') {
+    try {
+      await window.AtikshAPI.getProducts();
+      product = getAtikshProductById(prodId);
+    } catch (e) {}
+  }
 
   if (!product) {
     container.innerHTML = `
@@ -500,6 +516,8 @@ function initProductDetailPage() {
 
   initLucide();
 }
+
+window.initProductDetailPage = initProductDetailPage;
 
 // --------------------------------------------------------------------------
 // 4. Contact & Commercial Inquiry Submission Handler
