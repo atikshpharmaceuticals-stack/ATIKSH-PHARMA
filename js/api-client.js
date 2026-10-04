@@ -46,9 +46,11 @@ const AtikshAPI = (function() {
         }
         const res = await fetch(fbEndpoint, opts);
         if (!res.ok) throw new Error(`Firebase HTTP ${res.status}`);
-        return await res.json();
+        const parsed = await res.json();
+        return parsed;
       } catch (fbErr) {
         console.warn('Firebase sync notice:', fbErr);
+        return null;
       }
     }
 
@@ -234,14 +236,10 @@ window.AtikshAPI = AtikshAPI;
 
     // 2. Sync Products
     const remoteProds = await AtikshAPI.getProducts();
-    if (remoteProds && typeof renderProductsCatalogGrid === 'function') {
-      renderProductsCatalogGrid();
-    }
-    if (remoteProds && typeof renderHomeFeaturedProducts === 'function') {
-      renderHomeFeaturedProducts();
-    }
-    if (remoteProds && typeof renderAdminProductsTable === 'function') {
-      renderAdminProductsTable();
+    if (remoteProds) {
+      if (typeof initHomeFeaturedProducts === 'function') initHomeFeaturedProducts();
+      if (typeof initProductsCatalog === 'function') initProductsCatalog();
+      if (typeof renderAdminProductsTable === 'function') renderAdminProductsTable();
     }
 
     // 3. Sync Inquiries & Users if in Admin Panel

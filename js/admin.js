@@ -132,6 +132,21 @@ function switchTab(tabId) {
     activeMobileBtn.classList.add('bg-teal-600', 'text-white', 'border-teal-600');
   }
 
+  // Refresh tab content dynamically
+  if (tabId === 'inquiries') {
+    renderAdminInquiriesTable();
+    if (window.AtikshAPI) {
+      AtikshAPI.getInquiries().then(() => {
+        renderAdminInquiriesTable();
+        updateAdminStats();
+      });
+    }
+  } else if (tabId === 'products') {
+    renderAdminProductsTable();
+  } else if (tabId === 'users') {
+    renderAdminUsersTable();
+  }
+
   initLucide();
 }
 
@@ -918,11 +933,11 @@ function initCloudTabUI() {
     apiUrlInput.value = localStorage.getItem('atiksh_cloud_api_url') || '';
   }
   if (firebaseUrlInput) {
-    firebaseUrlInput.value = localStorage.getItem('atiksh_firebase_db_url') || '';
+    firebaseUrlInput.value = localStorage.getItem('atiksh_firebase_db_url') || (window.AtikshAPI ? AtikshAPI.getFirebaseUrl() : '') || '';
   }
 
   if (statusText) {
-    const fb = localStorage.getItem('atiksh_firebase_db_url');
+    const fb = localStorage.getItem('atiksh_firebase_db_url') || (window.AtikshAPI ? AtikshAPI.getFirebaseUrl() : '');
     const api = localStorage.getItem('atiksh_cloud_api_url');
     if (fb) {
       statusText.textContent = "Firebase Realtime Cloud Database Connected";
