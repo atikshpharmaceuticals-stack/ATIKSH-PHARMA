@@ -96,11 +96,14 @@ function getSiteConfig() {
 }
 
 /**
- * Helper to save site config to localStorage.
+ * Helper to save site config to localStorage and central server.
  */
 function saveSiteConfig(config) {
   try {
     localStorage.setItem('atiksh_site_config', JSON.stringify(config));
+    if (window.AtikshAPI && typeof window.AtikshAPI.saveConfig === 'function') {
+      window.AtikshAPI.saveConfig(config);
+    }
     return true;
   } catch (e) {
     console.error("Error saving site config:", e);

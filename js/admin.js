@@ -41,6 +41,9 @@ function getProducts() {
 function saveProducts(products) {
   try {
     localStorage.setItem('atiksh_products', JSON.stringify(products));
+    if (window.AtikshAPI && typeof window.AtikshAPI.saveProducts === 'function') {
+      window.AtikshAPI.saveProducts(products);
+    }
     updateAdminStats();
   } catch (e) {
     alert("Storage limit reached! Please optimize image sizes.");
@@ -60,6 +63,9 @@ function getInquiries() {
 
 function saveInquiries(inquiries) {
   localStorage.setItem('atiksh_inquiries', JSON.stringify(inquiries));
+  if (window.AtikshAPI && typeof window.AtikshAPI.saveInquiries === 'function') {
+    window.AtikshAPI.saveInquiries(inquiries);
+  }
   updateAdminStats();
 }
 
@@ -772,6 +778,9 @@ function getAdminPassword() {
 
 function setAdminPassword(newPassword) {
   localStorage.setItem('atiksh_admin_password', newPassword);
+  if (window.AtikshAPI && typeof window.AtikshAPI.saveAdminPassword === 'function') {
+    window.AtikshAPI.saveAdminPassword(newPassword);
+  }
 }
 
 function isAdminAuthenticated() {

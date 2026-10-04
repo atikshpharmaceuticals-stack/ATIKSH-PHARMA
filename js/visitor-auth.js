@@ -69,6 +69,9 @@ function getRegisteredUsers() {
 function saveRegisteredUsers(users) {
   try {
     localStorage.setItem(ATIKSH_USERS_KEY, JSON.stringify(users));
+    if (window.AtikshAPI && typeof window.AtikshAPI.saveUsers === 'function') {
+      window.AtikshAPI.saveUsers(users);
+    }
   } catch (e) {
     console.error("Error saving users", e);
   }

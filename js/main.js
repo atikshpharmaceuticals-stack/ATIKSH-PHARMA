@@ -543,6 +543,9 @@ function initInquiryFormHandler() {
       const currentInquiries = JSON.parse(localStorage.getItem('atiksh_inquiries') || '[]');
       currentInquiries.unshift(newInquiry);
       localStorage.setItem('atiksh_inquiries', JSON.stringify(currentInquiries));
+      if (window.AtikshAPI && typeof window.AtikshAPI.sendInquiry === 'function') {
+        window.AtikshAPI.sendInquiry(newInquiry);
+      }
     } catch (err) {
       console.warn("Error persisting inquiry to localStorage", err);
     }

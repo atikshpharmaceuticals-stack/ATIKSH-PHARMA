@@ -108,10 +108,58 @@ document.addEventListener('visibilitychange', function() {
   }
 });
 
-// 3. Ultra-responsive 1-second dynamic poll to reflect changes live in the background
+// 3. Ultra-responsive 1-second dynamic poll to reflect changes live in the DOM
 setInterval(function() {
   applySiteConfigToDOM();
 }, 1000);
 
+// 4. Cross-Device Cloud Sync Poll (Polls every 3 seconds for updates from other devices)
+let _lastSyncRemoteProductsCount = -1;
+let _lastSyncRemoteInquiriesCount = -1;
+
+async function syncRemoteDataCrossDevice() {
+  if (!window.AtikshAPI) return;
+  try {
+    // Sync Site Config
+    const remoteConfig = await AtikshAPI.getConfig();
+    if (remoteConfig) applySiteConfigToDOM();
+
+    // Sync Products
+    const remoteProds = await AtikshAPI.getProducts();
+    if (Array.isArray(remoteProds)) {
+      if (_lastSyncRemoteProductsCount !== -1 && _lastSyncRemoteProductsCount !== remoteProds.length) {
+        if (typeof initHomeFeaturedProducts === 'function') initHomeFeaturedProducts();
+        if (typeof initProductsCatalog === 'function') initProductsCatalog();
+        if (typeof renderAdminProductsTable === 'function') renderAdminProductsTable();
+      }
+      _lastSyncRemoteProductsCount = remoteProds.length;
+    }
+
+    // Sync Inquiries (if on Admin panel)
+    if (typeof renderAdminInquiriesTable === 'function') {
+      const remoteInquiries = await AtikshAPI.getInquiries();
+      if (Array.isArray(remoteInquiries)) {
+        if (_lastSyncRemoteInquiriesCount !== -1 && _lastSyncRemoteInquiriesCount !== remoteInquiries.length) {
+          renderAdminInquiriesTable();
+          if (typeof updateAdminStats === 'function') updateAdminStats();
+        }
+        _lastSyncRemoteInquiriesCount = remoteInquiries.length;
+      }
+    }
+
+    // Sync Users (if on Admin panel)
+    if (typeof renderAdminUsersTable === 'function') {
+      await AtikshAPI.getUsers();
+      renderAdminUsersTable();
+    }
+  } catch (err) {
+    // Quiet fail on temporary network hiccups
+  }
+}
+
+// Check every 3 seconds for new inquiries or products from other phones/browsers
+setInterval(syncRemoteDataCrossDevice, 3000);
+
 // Global export
 window.applySiteConfigToDOM = applySiteConfigToDOM;
+window.syncRemoteDataCrossDevice = syncRemoteDataCrossDevice;
