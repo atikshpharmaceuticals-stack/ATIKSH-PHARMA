@@ -890,3 +890,130 @@ function togglePasswordVisibility(inputId, btnEl) {
   initLucide();
 }
 
+// --------------------------------------------------------------------------
+// CLOUD DATABASE & STATIC HOSTING MANAGEMENT
+// --------------------------------------------------------------------------
+function initCloudTabUI() {
+  const apiUrlInput = document.getElementById('cloud-api-url');
+  const firebaseUrlInput = document.getElementById('cloud-firebase-url');
+  const statusText = document.getElementById('cloud-status-text');
+
+  if (apiUrlInput) {
+    apiUrlInput.value = localStorage.getItem('atiksh_cloud_api_url') || '';
+  }
+  if (firebaseUrlInput) {
+    firebaseUrlInput.value = localStorage.getItem('atiksh_firebase_db_url') || '';
+  }
+
+  if (statusText) {
+    const fb = localStorage.getItem('atiksh_firebase_db_url');
+    const api = localStorage.getItem('atiksh_cloud_api_url');
+    if (fb) {
+      statusText.textContent = "Firebase Realtime Cloud Database Connected";
+    } else if (api) {
+      statusText.textContent = `Remote Cloud API Connected (${api})`;
+    } else {
+      statusText.textContent = "Direct Web Server Connected (Local / VPS)";
+    }
+  }
+}
+
+function saveCloudApiUrl() {
+  const input = document.getElementById('cloud-api-url');
+  if (!input) return;
+  const val = input.value.trim();
+  localStorage.setItem('atiksh_cloud_api_url', val);
+  showToast(val ? "Cloud Backend URL saved!" : "Reset to default server URL");
+  initCloudTabUI();
+}
+
+function saveFirebaseCloudUrl() {
+  const input = document.getElementById('cloud-firebase-url');
+  if (!input) return;
+  let val = input.value.trim();
+  if (val && !val.startsWith('http')) {
+    val = 'https://' + val;
+  }
+  localStorage.setItem('atiksh_firebase_db_url', val);
+  showToast(val ? "Firebase Database connected!" : "Firebase disconnected");
+  initCloudTabUI();
+}
+
+async function testCloudConnection() {
+  showToast("Testing connection...");
+  try {
+    const prods = await AtikshAPI.getProducts();
+    if (prods !== null) {
+      showToast("Cloud Connection Successful!");
+    } else {
+      showToast("Could not reach cloud database.");
+    }
+  } catch (e) {
+    showToast("Connection failed: " + e.message);
+  }
+}
+
+function exportFullSiteDatabase() {
+  const db = {
+    products: getProducts(),
+    inquiries: getInquiries(),
+    users: typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [],
+    config: typeof getSiteConfig === 'function' ? getSiteConfig() : {},
+    adminPassword: getAdminPassword(),
+    exportedAt: new Date().toISOString()
+  };
+
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `atiksh-database-backup-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("Database backup downloaded!");
+}
+
+function importFullSiteDatabase(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function(evt) {
+    try {
+      const data = JSON.parse(evt.target.result);
+      if (!confirm("Are you sure you want to restore this database? Existing products and inquiries will be replaced.")) return;
+
+      if (Array.isArray(data.products)) {
+        await saveProducts(data.products);
+      }
+      if (Array.isArray(data.inquiries)) {
+        await saveInquiries(data.inquiries);
+      }
+      if (Array.isArray(data.users) && typeof saveRegisteredUsers === 'function') {
+        saveRegisteredUsers(data.users);
+      }
+      if (data.config && typeof saveSiteConfig === 'function') {
+        saveSiteConfig(data.config);
+      }
+      if (data.adminPassword) {
+        setAdminPassword(data.adminPassword);
+      }
+
+      renderAdminProductsTable();
+      renderAdminInquiriesTable();
+      renderAdminUsersTable();
+      updateAdminStats();
+      showToast("Database restored successfully!");
+    } catch (err) {
+      alert("Invalid database file format. Please upload a valid JSON backup.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  initCloudTabUI();
+});
+

@@ -1,15 +1,57 @@
 /**
  * ATIKSH PHARMA - Centralized Multi-Device Real-Time Sync Client (api-client.js)
- * Bridges browser localStorage with backend REST API so any action (adding products,
- * visitor inquiries, signups, customizer edits) works in real-time across ALL devices,
- * mobile phones, laptops, and hosted servers.
+ * Supports:
+ *  1. Self-hosted Node.js server (Default)
+ *  2. Custom Cloud Backend URL (e.g. Render / Railway / Heroku / AWS / VPS)
+ *  3. Free Firebase Realtime Database (100% serverless, works instantly on static hosts like Netlify/GitHub Pages/cPanel)
+ *  4. Full Database Backup & One-Click Restore
  */
 
 const AtikshAPI = (function() {
-  const BASE_URL = window.location.origin;
+  function getCustomBackendUrl() {
+    return localStorage.getItem('atiksh_cloud_api_url') || '';
+  }
 
+  function getFirebaseUrl() {
+    let url = localStorage.getItem('atiksh_firebase_db_url') || '';
+    if (url && url.endsWith('/')) url = url.slice(0, -1);
+    return url;
+  }
+
+  function getBaseUrl() {
+    const custom = getCustomBackendUrl();
+    if (custom) return custom.replace(/\/+$/, '');
+    return window.location.origin;
+  }
+
+  // Generic REST request handler
   async function request(endpoint, method = 'GET', data = null) {
+    const firebaseUrl = getFirebaseUrl();
+
+    // 1. If Firebase Realtime Database is configured
+    if (firebaseUrl) {
+      try {
+        const fbPath = endpoint.replace('/api/', '').replace(/\//g, '_');
+        const fbEndpoint = `${firebaseUrl}/${fbPath}.json`;
+        const opts = {
+          method: method === 'POST' ? 'PUT' : method,
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store'
+        };
+        if (data && (method === 'POST' || method === 'PUT')) {
+          opts.body = JSON.stringify(data);
+        }
+        const res = await fetch(fbEndpoint, opts);
+        if (!res.ok) throw new Error(`Firebase HTTP ${res.status}`);
+        return await res.json();
+      } catch (fbErr) {
+        console.warn('Firebase sync notice:', fbErr);
+      }
+    }
+
+    // 2. Direct Node server or Custom Cloud Backend
     try {
+      const baseUrl = getBaseUrl();
       const opts = {
         method,
         headers: {
@@ -20,16 +62,19 @@ const AtikshAPI = (function() {
       if (data && (method === 'POST' || method === 'PUT')) {
         opts.body = JSON.stringify(data);
       }
-      const res = await fetch(`${BASE_URL}${endpoint}`, opts);
+      const res = await fetch(`${baseUrl}${endpoint}`, opts);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       return await res.json();
     } catch (err) {
-      // Offline or network error fallback
       return null;
     }
   }
 
   return {
+    getBaseUrl,
+    getFirebaseUrl,
+    getCustomBackendUrl,
+
     // 1. PRODUCTS
     getProducts: async function() {
       const serverData = await request('/api/products', 'GET');
@@ -67,16 +112,29 @@ const AtikshAPI = (function() {
       await request('/api/inquiries', 'POST', inquiries);
     },
     sendInquiry: async function(inquiry) {
-      // Local immediate queue
       try {
         const local = JSON.parse(localStorage.getItem('atiksh_inquiries') || '[]');
         local.unshift(inquiry);
         localStorage.setItem('atiksh_inquiries', JSON.stringify(local));
       } catch (e) {}
 
-      // Server post
-      const res = await request('/api/inquiries', 'POST', inquiry);
-      return res;
+      const firebaseUrl = getFirebaseUrl();
+      if (firebaseUrl) {
+        try {
+          const res = await fetch(`${firebaseUrl}/inquiries.json`);
+          const existing = (await res.json()) || [];
+          const list = Array.isArray(existing) ? existing : Object.values(existing);
+          list.unshift(inquiry);
+          await fetch(`${firebaseUrl}/inquiries.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(list)
+          });
+          return { success: true };
+        } catch (e) {}
+      }
+
+      return await request('/api/inquiries', 'POST', inquiry);
     },
 
     // 3. USERS
@@ -102,6 +160,23 @@ const AtikshAPI = (function() {
         local.unshift(user);
         localStorage.setItem('atiksh_registered_users', JSON.stringify(local));
       } catch (e) {}
+
+      const firebaseUrl = getFirebaseUrl();
+      if (firebaseUrl) {
+        try {
+          const res = await fetch(`${firebaseUrl}/users.json`);
+          const existing = (await res.json()) || [];
+          const list = Array.isArray(existing) ? existing : Object.values(existing);
+          list.unshift(user);
+          await fetch(`${firebaseUrl}/users.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(list)
+          });
+          return { success: true };
+        } catch (e) {}
+      }
+
       return await request('/api/users', 'POST', user);
     },
 
