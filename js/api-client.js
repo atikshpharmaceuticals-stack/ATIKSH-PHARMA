@@ -7,13 +7,16 @@
  *  4. Full Database Backup & One-Click Restore
  */
 
+// Global default Firebase Database: Synchronizes across all devices, mobile phones, laptops, and static hosts
+window.ATIKSH_FIREBASE_URL = window.ATIKSH_FIREBASE_URL || "https://atiksh-pharma-web-database-default-rtdb.firebaseio.com";
+
 const AtikshAPI = (function() {
   function getCustomBackendUrl() {
     return localStorage.getItem('atiksh_cloud_api_url') || '';
   }
 
   function getFirebaseUrl() {
-    let url = localStorage.getItem('atiksh_firebase_db_url') || '';
+    let url = localStorage.getItem('atiksh_firebase_db_url') || window.ATIKSH_FIREBASE_URL || '';
     if (url && url.endsWith('/')) url = url.slice(0, -1);
     return url;
   }
@@ -78,9 +81,10 @@ const AtikshAPI = (function() {
     // 1. PRODUCTS
     getProducts: async function() {
       const serverData = await request('/api/products', 'GET');
-      if (Array.isArray(serverData)) {
-        localStorage.setItem('atiksh_products', JSON.stringify(serverData));
-        return serverData;
+      if (serverData !== null && serverData !== undefined) {
+        const list = Array.isArray(serverData) ? serverData : Object.values(serverData);
+        localStorage.setItem('atiksh_products', JSON.stringify(list));
+        return list;
       }
       try {
         const local = localStorage.getItem('atiksh_products');
@@ -97,9 +101,10 @@ const AtikshAPI = (function() {
     // 2. INQUIRIES
     getInquiries: async function() {
       const serverData = await request('/api/inquiries', 'GET');
-      if (Array.isArray(serverData)) {
-        localStorage.setItem('atiksh_inquiries', JSON.stringify(serverData));
-        return serverData;
+      if (serverData !== null && serverData !== undefined) {
+        const list = Array.isArray(serverData) ? serverData : Object.values(serverData);
+        localStorage.setItem('atiksh_inquiries', JSON.stringify(list));
+        return list;
       }
       try {
         return JSON.parse(localStorage.getItem('atiksh_inquiries') || '[]');
